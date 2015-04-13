@@ -487,7 +487,12 @@ extension BrowserViewController: BrowserToolbarDelegate {
     func browserToolbarDidPressShare(browserToolbar: BrowserToolbarProtocol, button: UIButton) {
         if let selected = tabManager.selectedTab {
             if let url = selected.displayURL {
-                var activityViewController = UIActivityViewController(activityItems: [selected.title ?? url.absoluteString!, url], applicationActivities: nil)
+                let printInfo = UIPrintInfo(dictionary: nil)
+                printInfo.jobName = url.absoluteString
+                printInfo.outputType = .General
+                let renderer = BrowserPrintPageRenderer(browser: selected)
+                let activityItems = [printInfo, renderer, selected.title ?? url.absoluteString!, url]
+                var activityViewController = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
                 // Hide 'Add to Reading List' which currently uses Safari
                 activityViewController.excludedActivityTypes = [UIActivityTypeAddToReadingList]
                 if let popoverPresentationController = activityViewController.popoverPresentationController {
@@ -1348,4 +1353,64 @@ private class BrowserScreenshotHelper: ScreenshotHelper {
 
         return nil
     }
+}
+
+private class BrowserPrintPageRenderer: UIPrintPageRenderer {
+    private weak var browser: Browser?
+    let textAttributes = [NSFontAttributeName: UIFont(name: "Helvetica", size: 8)!]
+    let dateString: String
+
+    init(browser: Browser) {
+        self.browser = browser
+        let dateFormatter = NSDateFormatter()
+        dateFormatter.dateStyle = .ShortStyle
+        dateFormatter.timeStyle = .ShortStyle
+        self.dateString = dateFormatter.stringFromDate(NSDate())
+
+        super.init()
+
+        self.footerHeight = 0.5 * 36
+        self.headerHeight = 0.5 * 36
+
+        let formatter = browser.webView.viewPrintFormatter()
+        formatter.perPageContentInsets = UIEdgeInsets(top: 36, left: 36, bottom: 36, right: 36)
+        addPrintFormatter(formatter, startingAtPageAtIndex: 0)
+    }
+
+    override func drawFooterForPageAtIndex(pageIndex: Int, var inRect headerRect: CGRect) {
+        var headerInsets = UIEdgeInsets(top: CGRectGetMinY(headerRect), left: 36, bottom: CGRectGetMaxY(paperRect) - CGRectGetMaxY(headerRect), right: 36)
+        headerRect = UIEdgeInsetsInsetRect(paperRect, headerInsets)
+
+        // url on left
+        self.drawAtPoint(browser!.displayURL?.absoluteString ?? "", rect: headerRect, onLeft: true)
+
+        // page number on right
+        let pageNumberString: String = "\(pageIndex + 1)"
+        self.drawAtPoint(pageNumberString, rect: headerRect, onLeft: false)
+    }
+
+    override func drawHeaderForPageAtIndex(pageIndex: Int, var inRect headerRect: CGRect) {
+        var headerInsets = UIEdgeInsets(top: CGRectGetMinY(headerRect), left: 36, bottom: CGRectGetMaxY(paperRect) - CGRectGetMaxY(headerRect), right: 36)
+        headerRect = UIEdgeInsetsInsetRect(paperRect, headerInsets)
+
+        // page title on left
+        self.drawAtPoint(browser!.displayTitle, rect: headerRect, onLeft: true)
+
+        // date on right
+        self.drawAtPoint(dateString, rect: headerRect, onLeft: false)
+    }
+
+    func drawAtPoint(text: String, rect:CGRect, onLeft: Bool){
+        let size = text.sizeWithAttributes(textAttributes)
+        var x, y: CGFloat
+        if(onLeft){
+            x = CGRectGetMinX(rect)
+            y = CGRectGetMidY(rect) - size.height / 2
+        }else{
+            x = CGRectGetMaxX(rect) - size.width
+            y = CGRectGetMidY(rect) - size.height / 2
+        }
+        text.drawAtPoint(CGPoint(x: x, y: y), withAttributes: textAttributes)
+    }
+    
 }
