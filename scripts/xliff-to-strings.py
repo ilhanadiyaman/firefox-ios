@@ -56,8 +56,16 @@ def export_xliff_file(file_node, export_path, target_language):
                 if len(notes) == 1:
                     line = u"/* %s */\n" % notes[0].text
                     fp.write(line.encode("utf8"))
-                line = u"\"%s\" = \"%s\";\n\n" % (sources[0].text, targets[0].text)
+                source_text = sources[0].text.replace("'", "\\'")
+                target_text = targets[0].text.replace("'", "\\'")
+                line = u"\"%s\" = \"%s\";\n\n" % (source_text, target_text)
                 fp.write(line.encode("utf8"))
+
+    # Export fails if the strings file is empty. Xcode probably checks
+    # on file length vs read error.
+    contents = open(export_path).read()
+    if len(contents) == 0:
+        os.remove(export_path)
 
 def original_path(root, target, original):
     parts = original.split(os.sep)
