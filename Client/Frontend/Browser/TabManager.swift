@@ -71,8 +71,10 @@ class TabManager {
     }
 
     func addTab(var request: NSURLRequest! = nil, configuration: WKWebViewConfiguration = WKWebViewConfiguration()) -> Browser {
+        var openInBackground = true
         if request == nil {
             request = defaultNewTabRequest
+            openInBackground = false
         }
 
         let tab = Browser(configuration: configuration)
@@ -80,7 +82,9 @@ class TabManager {
         tabs.append(tab)
         delegate?.tabManager(self, didAddTab: tab)
         tab.loadRequest(request)
-        selectTab(tab)
+        if !openInBackground{
+            selectTab(tab)
+        }
         return tab
     }
 
